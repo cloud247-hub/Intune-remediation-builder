@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="no">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="description" content="Bygg Detection.ps1 og Remediation.ps1 for Microsoft Intune Remediations med kategorifiltrering, komplett ASR-guide og nedlasting." />
+  <meta name="theme-color" content="#061827" />
+  <title>Intune Remediation Builder</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Intune Remediation Builder forside">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 36 36" role="img">
+            <path d="M18 3.2 30.2 8v8.8c0 7.4-4.6 13.1-12.2 16-7.6-2.9-12.2-8.6-12.2-16V8L18 3.2Z" fill="currentColor"/>
+            <path d="m12.2 19.4 3.5 3.4 8-8.6" fill="none" stroke="#061827" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M24.7 7.2a5.1 5.1 0 0 0-6.9 6.9l-6.3 6.3 3.1 3.1 6.3-6.3a5.1 5.1 0 0 0 6.9-6.9l-3 3-2.1-.6-.6-2.1 2.6-3.4Z" fill="#061827" opacity=".28"/>
+          </svg>
+        </span>
+        <span>Intune Remediation Builder</span>
+      </a>
+      <nav class="topnav" aria-label="Hovedmeny">
+        <a href="#recipes">Oppskrifter</a>
+        <a href="#builder">Scriptbygger</a>
+        <a href="#test">Test detection</a>
+        <a href="#asr-guide">ASR-regler</a>
+        <a href="#requirements">Intune-krav</a>
+      </nav>
+      <div class="privacy-pill"><span class="dot"></span> Alt bygges lokalt</div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Microsoft Intune Remediations</p>
+          <h1>Bygg tryggere<br /><span>PowerShell-remedieringer.</span></h1>
+          <p class="lede">Velg en ferdig oppskrift, tilpass innstillingene og last ned et komplett Intune-scriptpar med tydelige exit codes og lokal testkommando.</p>
+          <div class="hero-badges" aria-label="Nøkkelfunksjoner">
+            <span>Detection.ps1</span>
+            <span>Remediation.ps1</span>
+            <span>19 ASR-regler</span>
+            <span>Ingen innlogging</span>
+          </div>
+        </div>
+
+        <section class="quick-card" aria-labelledby="quickTitle">
+          <div class="quick-card-head">
+            <div>
+              <p class="section-kicker">Kom raskt i gang</p>
+              <h2 id="quickTitle">Velg en oppskrift</h2>
+            </div>
+            <span id="recipeCount" class="recipe-count">20 maler</span>
+          </div>
+          <label for="quickRecipe">Oppskrift</label>
+          <select id="quickRecipe"></select>
+          <label for="quickPackageName">Pakkenavn</label>
+          <input id="quickPackageName" type="text" maxlength="90" value="Kontroller Microsoft Defender" spellcheck="false" />
+          <button id="quickStart" class="primary-button" type="button">
+            <span>Åpne i scriptbyggeren</span>
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11m-4-4 4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <p class="form-note">Appen sender ikke scripts, verdier eller domenedata til en server. Alt genereres i nettleseren.</p>
+        </section>
+      </section>
+
+      <section class="workspace">
+        <section id="recipes" class="section-block recipes-section">
+          <div class="section-heading split-heading">
+            <div>
+              <p class="eyebrow">Ferdige utgangspunkt</p>
+              <h2>Oppskrifter for vanlige Intune-behov</h2>
+              <p>Filtrer på kategori, velg en oppskrift og tilpass den før nedlasting.</p>
+            </div>
+            <div class="recipe-filter">
+              <label class="sr-only" for="recipeSearch">Søk i oppskrifter</label>
+              <span aria-hidden="true">⌕</span>
+              <input id="recipeSearch" type="search" placeholder="Søk etter oppskrift …" />
+            </div>
+          </div>
+
+          <div class="recipe-toolbar" aria-label="Filtrer oppskrifter">
+            <div id="categoryFilters" class="category-filters" role="group" aria-label="Oppskriftskategori"></div>
+            <div class="recipe-result-summary">
+              <span id="recipeResultsCount">20 oppskrifter</span>
+              <button id="clearRecipeFilters" class="text-button" type="button" hidden>Nullstill filtre</button>
+            </div>
+          </div>
+
+          <div id="recipeGrid" class="recipe-grid"></div>
+        </section>
+
+        <section id="builder" class="section-block builder-section">
+          <div class="section-heading">
+            <p class="eyebrow">Konfigurer og generer</p>
+            <h2>Scriptbygger</h2>
+            <p>Velg ønsket tilstand. Builderen lager detection- og remediation-logikk som hører sammen.</p>
+          </div>
+
+          <div class="builder-layout">
+            <aside class="config-panel panel">
+              <div class="panel-head">
+                <div>
+                  <p class="section-kicker">Aktiv oppskrift</p>
+                  <h3 id="activeRecipeName">Microsoft Defender</h3>
+                </div>
+                <span id="activeRecipeRisk" class="risk-badge risk-low">Lav risiko</span>
+              </div>
+
+              <div class="config-intro">
+                <div class="recipe-icon-large" id="activeRecipeIcon" aria-hidden="true">🛡️</div>
+                <p id="activeRecipeDescription"></p>
+              </div>
+
+
+              <section id="recipeWorkflow" class="recipe-workflow" hidden aria-labelledby="workflowTitle">
+                <div class="workflow-head">
+                  <div>
+                    <p class="section-kicker">Opplastet PowerShell</p>
+                    <h4 id="workflowTitle">Slik fungerer oppskriften</h4>
+                  </div>
+                  <span class="uploaded-badge">Originalt scriptpar</span>
+                </div>
+                <div class="workflow-steps">
+                  <article>
+                    <span class="workflow-letter detection">D</span>
+                    <div><strong>Detection.ps1</strong><p id="workflowDetection"></p></div>
+                  </article>
+                  <article>
+                    <span class="workflow-letter remediation">R</span>
+                    <div><strong>Remediation.ps1</strong><p id="workflowRemediation"></p></div>
+                  </article>
+                </div>
+                <ul id="workflowNotes" class="workflow-notes"></ul>
+                <div class="workflow-sources"><strong>Kildefiler</strong><div id="workflowSourceFiles"></div></div>
+              </section>
+
+              <form id="configForm" class="config-form" autocomplete="off"></form>
+
+              <div class="package-settings">
+                <div class="subheading">
+                  <h4>Intune-innstillinger</h4>
+                  <span>Anbefalt for oppskriften</span>
+                </div>
+                <div class="setting-grid">
+                  <label>
+                    Kjør med pålogget bruker
+                    <select id="runAsUser">
+                      <option value="no">Nei – SYSTEM</option>
+                      <option value="yes">Ja – bruker</option>
+                    </select>
+                  </label>
+                  <label>
+                    Kjør i 64-bit PowerShell
+                    <select id="run64Bit">
+                      <option value="yes">Ja</option>
+                      <option value="no">Nei</option>
+                    </select>
+                  </label>
+                  <label>
+                    Håndhev scriptsignatur
+                    <select id="signatureCheck">
+                      <option value="no">Nei</option>
+                      <option value="yes">Ja</option>
+                    </select>
+                  </label>
+                  <label>
+                    Anbefalt frekvens
+                    <select id="schedule">
+                      <option value="daily">Daglig</option>
+                      <option value="hourly">Hver 8. time</option>
+                      <option value="weekly">Ukentlig</option>
+                      <option value="once">Én gang</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+
+              <div id="configWarnings" class="config-warnings"></div>
+
+              <button id="generateScripts" class="primary-button full-button" type="button">
+                <span>Generer scripts</span>
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 4h8M6 10h8M6 16h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="m14.5 13.5 2.5 2.5-2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </aside>
+
+            <div class="scripts-column">
+              <div class="builder-status panel">
+                <div>
+                  <span id="builderStatusDot" class="status-dot good"></span>
+                  <div><strong id="builderStatusTitle">Scripts er klare</strong><p id="builderStatusText">Oppskriften er generert med standardverdier.</p></div>
+                </div>
+                <button id="resetRecipe" class="ghost-button" type="button">Tilbakestill</button>
+              </div>
+
+              <div class="script-grid">
+                <section class="script-card panel">
+                  <div class="script-head">
+                    <div>
+                      <span class="file-icon detection">D</span>
+                      <div><h3>Detection.ps1</h3><p>Oppdager avvik og returnerer exit 1</p></div>
+                    </div>
+                    <div class="script-actions">
+                      <button class="icon-button" type="button" data-copy="detection" title="Kopier Detection.ps1">Kopier</button>
+                      <button class="icon-button" type="button" data-download="detection" title="Last ned Detection.ps1">Last ned</button>
+                    </div>
+                  </div>
+                  <textarea id="detectionScript" class="code-editor" spellcheck="false" aria-label="Detection.ps1"></textarea>
+                  <div class="script-meta"><span id="detectionLines">0 linjer</span><span id="detectionBytes">0 byte</span><span>UTF-8 uten BOM</span></div>
+                </section>
+
+                <section class="script-card panel">
+                  <div class="script-head">
+                    <div>
+                      <span class="file-icon remediation">R</span>
+                      <div><h3>Remediation.ps1</h3><p>Forsøker å rette avviket som ble funnet</p></div>
+                    </div>
+                    <div class="script-actions">
+                      <button class="icon-button" type="button" data-copy="remediation" title="Kopier Remediation.ps1">Kopier</button>
+                      <button class="icon-button" type="button" data-download="remediation" title="Last ned Remediation.ps1">Last ned</button>
+                    </div>
+                  </div>
+                  <textarea id="remediationScript" class="code-editor" spellcheck="false" aria-label="Remediation.ps1"></textarea>
+                  <div class="script-meta"><span id="remediationLines">0 linjer</span><span id="remediationBytes">0 byte</span><span>UTF-8 uten BOM</span></div>
+                </section>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="test" class="section-block test-section">
+          <div class="section-heading split-heading">
+            <div>
+              <p class="eyebrow">Test detection</p>
+              <h2>Simuler resultatet før utrulling</h2>
+              <p>Nettleseren kan ikke kjøre PowerShell på maskinen din. Testen nedenfor simulerer oppskriftens logikk og kontrollerer scriptstrukturen.</p>
+            </div>
+            <span class="simulation-badge">Nettlesersimulering</span>
+          </div>
+
+          <div class="test-layout">
+            <section class="panel test-config-card">
+              <div class="panel-head">
+                <div><p class="section-kicker">Testscenario</p><h3 id="testRecipeName">Microsoft Defender</h3></div>
+                <span class="count-badge">Simulert</span>
+              </div>
+              <form id="testForm" class="test-form"></form>
+              <div class="test-buttons">
+                <button id="runTest" class="primary-button" type="button">Test detection</button>
+                <button id="copyTestCommand" class="secondary-button" type="button">Kopier lokal testkommando</button>
+              </div>
+              <p class="local-test-note">Test alltid de nedlastede scriptfilene på en avgrenset Windows-testenhet før produksjon.</p>
+            </section>
+
+            <section class="panel console-card">
+              <div class="console-head">
+                <div><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span></div>
+                <span>Detection test output</span>
+              </div>
+              <div id="testConsole" class="test-console" aria-live="polite">
+                <span class="console-muted">Velg testverdier og trykk «Test detection».</span>
+              </div>
+              <div id="exitResult" class="exit-result neutral">
+                <span>Exit code</span><strong>–</strong><p>Ingen test kjørt ennå</p>
+              </div>
+            </section>
+
+            <section class="panel validation-card">
+              <div class="panel-head">
+                <div><p class="section-kicker">Statisk kontroll</p><h3>Scriptkvalitet</h3></div>
+                <span id="validationScore" class="validation-score">0/7</span>
+              </div>
+              <div id="validationList" class="validation-list"></div>
+            </section>
+          </div>
+        </section>
+
+
+        <section id="asr-guide" class="section-block asr-guide-section">
+          <div class="section-heading split-heading">
+            <div>
+              <p class="eyebrow">Microsoft Defender</p>
+              <h2>Attack Surface Reduction-regler</h2>
+              <p>En komplett norsk oversikt over alle ASR-reglene, GUID-er, anbefalt utrullingsmodus og hvordan de settes opp i Microsoft Intune.</p>
+            </div>
+            <span class="asr-count-badge"><strong id="asrRuleCount">19</strong> regler</span>
+          </div>
+
+          <div class="asr-intro-card">
+            <div class="asr-intro-copy">
+              <span class="asr-hero-icon" aria-hidden="true">ASR</span>
+              <div>
+                <h3>Reduser angrepsflaten uten å stoppe forretningen</h3>
+                <p>ASR-regler blokkerer risikofylt programatferd som ofte brukes av skadevare. Bruk Intune Endpoint Security som hovedmetode i produksjon. PowerShell-oppskriftene i denne appen er best egnet til testing, validering og avgrensede scenarioer.</p>
+              </div>
+            </div>
+            <div class="asr-prerequisites">
+              <strong>Før du begynner</strong>
+              <span>Defender Antivirus må være primært antivirus</span>
+              <span>Sanntidsbeskyttelse må være aktiv</span>
+              <span>Skylevert beskyttelse anbefales og kreves av enkelte regler</span>
+              <span>Tildel ASR-policy til enhetsgrupper, ikke brukergrupper</span>
+            </div>
+          </div>
+
+          <div class="asr-setup-grid" aria-label="Oppsett av ASR i Intune">
+            <article><span>01</span><h3>Opprett policy</h3><p>Åpne <strong>Endpoint security → Attack surface reduction</strong>, velg <strong>Create Policy</strong>, plattform <strong>Windows</strong> og profilen <strong>Attack Surface Reduction Rules</strong>.</p></article>
+            <article><span>02</span><h3>Start kontrollert</h3><p>Standardbeskyttelsesreglene kan normalt settes til <strong>Block</strong>. Sett øvrige regler til <strong>Audit</strong> på en liten pilotring først.</p></article>
+            <article><span>03</span><h3>Analyser hendelser</h3><p>Følg ASR-rapporten, Advanced Hunting eller Windows Defender Operational-loggen. Audit-hendelser gjør det mulig å finne reell bruker- og apppåvirkning.</p></article>
+            <article><span>04</span><h3>Lag presise unntak</h3><p>Foretrekk unntak per regel fremfor globale unntak. Flytt deretter reglene gradvis til <strong>Warn</strong> eller <strong>Block</strong>.</p></article>
+          </div>
+
+          <div class="asr-mode-grid" aria-label="ASR-moduser">
+            <article><strong>0</strong><span>Av</span><p>Regelen er eksplisitt deaktivert.</p></article>
+            <article class="mode-block"><strong>1</strong><span>Block</span><p>Risikofylt atferd blokkeres.</p></article>
+            <article class="mode-audit"><strong>2</strong><span>Audit</span><p>Hendelser logges uten blokkering.</p></article>
+            <article><strong>5</strong><span>Ikke konfigurert</span><p>Ingen eksplisitt innstilling fra denne policyen.</p></article>
+            <article class="mode-warn"><strong>6</strong><span>Warn</span><p>Brukeren varsles og kan midlertidig overstyre når regelen støtter det.</p></article>
+          </div>
+
+          <div class="asr-rules-toolbar">
+            <div>
+              <p class="section-kicker">Alle regler</p>
+              <h3>ASR-regelreferanse</h3>
+            </div>
+            <div class="asr-search">
+              <label class="sr-only" for="asrRuleSearch">Søk i ASR-regler</label>
+              <span aria-hidden="true">⌕</span>
+              <input id="asrRuleSearch" type="search" placeholder="Søk etter navn, GUID eller kategori …" />
+            </div>
+          </div>
+          <div id="asrCategoryFilters" class="category-filters asr-category-filters" role="group" aria-label="ASR-kategori"></div>
+          <div id="asrRulesGrid" class="asr-rules-grid"></div>
+
+          <div class="asr-production-note">
+            <div>
+              <strong>Produksjonsanbefaling</strong>
+              <p>Intune- eller Defender-policy overskriver motstridende lokale PowerShell-innstillinger ved oppstart. Unngå å konfigurere de samme reglene samtidig med Intune, Group Policy og lokale scripts.</p>
+            </div>
+            <div class="asr-links">
+              <a href="https://learn.microsoft.com/en-us/defender-endpoint/attack-surface-reduction-rules-overview" target="_blank" rel="noopener noreferrer">Microsoft ASR-oversikt ↗</a>
+              <a href="https://learn.microsoft.com/en-us/defender-endpoint/attack-surface-reduction-rules-configure" target="_blank" rel="noopener noreferrer">Oppsett og unntak ↗</a>
+              <a href="https://learn.microsoft.com/en-us/defender-endpoint/attack-surface-reduction-rules-deployment" target="_blank" rel="noopener noreferrer">Utrullingsveiledning ↗</a>
+            </div>
+          </div>
+        </section>
+
+        <section class="section-block exit-section">
+          <div class="section-heading">
+            <p class="eyebrow">Exit codes</p>
+            <h2>Slik tolkes Detection.ps1</h2>
+          </div>
+          <div class="exit-code-grid">
+            <article class="exit-code-card success">
+              <span>0</span>
+              <div><h3>Ingen avvik</h3><p>Enheten er i ønsket tilstand. Remediation.ps1 kjøres ikke.</p></div>
+            </article>
+            <article class="exit-code-card issue">
+              <span>1</span>
+              <div><h3>Avvik funnet</h3><p>Dette er koden Intune bruker for å starte remediation-scriptet.</p></div>
+            </article>
+            <article class="exit-code-card error">
+              <span>Andre</span>
+              <div><h3>Ingen automatisk remediation</h3><p>Andre exit codes starter ikke remediation. Bruk tydelig output for feilsøking.</p></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="section-block download-section">
+          <div class="download-card">
+            <div class="download-copy">
+              <p class="eyebrow">Klar for Intune</p>
+              <h2>Last ned scriptpakken</h2>
+              <p>Pakken inneholder begge scripts, lokal testfil, manifest og en kort veiledning for opplasting.</p>
+              <dl id="packageSummary" class="package-summary"></dl>
+            </div>
+            <div class="download-actions">
+              <button id="downloadPackage" class="download-primary" type="button">
+                <span class="download-symbol">↓</span>
+                <span><strong>Last ned komplett ZIP</strong><small>Detection, remediation og README</small></span>
+              </button>
+              <div class="download-secondary-grid">
+                <button type="button" data-download="detection">Detection.ps1</button>
+                <button type="button" data-download="remediation">Remediation.ps1</button>
+                <button id="downloadRunner" type="button">Test-Detection.ps1</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="requirements" class="section-block requirements-section">
+          <div class="section-heading">
+            <p class="eyebrow">Før produksjon</p>
+            <h2>Microsoft-krav builderen hjelper deg å følge</h2>
+          </div>
+          <div class="requirements-grid">
+            <article><span>01</span><h3>Exit 1 starter retting</h3><p>Detection-scriptet må returnere <code>exit 1</code> når avviket er funnet. Ellers starter ikke remediation.</p></article>
+            <article><span>02</span><h3>UTF-8 og kort output</h3><p>Scriptfilene lastes ned i UTF-8 uten BOM. Hold output under Microsofts grense på 2 048 tegn.</p></article>
+            <article><span>03</span><h3>Ingen restart eller hemmeligheter</h3><p>Ikke legg inn restartkommandoer, passord, tokens, persondata eller annen sensitiv informasjon.</p></article>
+            <article><span>04</span><h3>Test og avgrens</h3><p>Prøv pakken på en testgruppe, kontroller kjøringskontekst og bruk en passende tidsplan før bred utrulling.</p></article>
+          </div>
+          <a class="learn-link" href="https://learn.microsoft.com/en-us/intune/device-management/tools/deploy-remediations" target="_blank" rel="noopener noreferrer">Åpne Microsoft Learn-dokumentasjonen <span aria-hidden="true">↗</span></a>
+        </section>
+
+        <section class="coffee-section" aria-labelledby="coffeeTitle">
+          <div class="coffee-card">
+            <div class="coffee-copy">
+              <div class="coffee-icon" aria-hidden="true">☕</div>
+              <div>
+                <p class="eyebrow">Nyttig verktøy?</p>
+                <h2 id="coffeeTitle">Spander meg en kaffe</h2>
+                <p>Intune Remediation Builder er gratis å bruke. Hvis den sparer deg tid, kan du støtte videre utvikling med en liten kaffe.</p>
+              </div>
+            </div>
+            <div class="coffee-action">
+              <div class="coffee-price"><strong>20,- kr</strong><span>Én valgfri støttebetaling</span></div>
+              <a class="coffee-button" href="https://qr.vipps.no/box/90e4bd01-a470-474a-98fa-8b48f69b0f4e/pay-in" target="_blank" rel="noopener noreferrer" aria-label="Spander en kaffe med Vipps">
+                <span>☕ Spander 20 kr med Vipps</span>
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11m-4-4 4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </a>
+              <p class="coffee-note">Betalingen åpnes i Vipps. Takk for at du støtter videre utvikling.</p>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <footer>
+      <span>Intune Remediation Builder</span>
+      <p>Genererte scripts er utgangspunkt som må kvalitetssikres i ditt miljø. Appen kjører ikke PowerShell og kobler ikke til Microsoft Intune.</p>
+    </footer>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="./app.js" defer></script>
+</body>
+</html>
