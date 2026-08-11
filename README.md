@@ -54,36 +54,6 @@ Dokumentasjon:
 
 https://learn.microsoft.com/en-us/intune/device-management/tools/deploy-remediations
 
-## Publiser på GitHub Pages
-
-1. Opprett et nytt GitHub-repository.
-2. Pakk ut ZIP-filen.
-3. Last opp innholdet i mappen til repository-roten:
-   - `index.html`
-   - `styles.css`
-   - `app.js`
-   - `.nojekyll`
-   - `README.md`
-4. Commit til `main`.
-5. Åpne **Settings → Pages**.
-6. Velg **Deploy from a branch**.
-7. Velg **main** og **/(root)**.
-8. Lagre.
-
-Appen bruker bare relative filstier og fungerer derfor både på et hoveddomene og under en GitHub Pages-prosjektsti.
-
-## Lokal kjøring
-
-```bash
-python3 -m http.server 8080
-```
-
-Åpne deretter:
-
-```text
-http://localhost:8080
-```
-
 ## Sikkerhet og ansvar
 
 Genererte scripts er utgangspunkt, ikke ferdig godkjente produksjonsscripts. Test alltid på en avgrenset enhetsgruppe, kontroller kjøringskontekst og vurder konsekvensene i eget miljø før bred utrulling.
