@@ -147,27 +147,6 @@ En vanlig nettleser kan ikke kjøre PowerShell på Windows-maskinen. Testfunksjo
 
 Den nedlastbare `Test-Detection.ps1` kan brukes på en Windows-testmaskin for å kjøre den faktiske `Detection.ps1`-filen og vise exit code.
 
-## Publiser på GitHub Pages
-
-1. Opprett et GitHub-repository.
-2. Pakk ut ZIP-filen.
-3. Last opp `index.html`, `styles.css`, `app.js`, `.nojekyll` og `README.md` til repository-roten.
-4. Commit til `main`.
-5. Åpne **Settings → Pages**.
-6. Velg **Deploy from a branch**.
-7. Velg **main** og **/(root)**.
-8. Lagre.
-
-Appen bruker relative filstier og fungerer både på et hoveddomene og under en GitHub Pages-prosjektsti.
-
-## Lokal kjøring
-
-```bash
-python3 -m http.server 8080
-```
-
-Åpne deretter `http://localhost:8080`.
-
 ## Microsoft-kilder for ASR
 
 - [ASR rules overview](https://learn.microsoft.com/en-us/defender-endpoint/attack-surface-reduction-rules-overview)
