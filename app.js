@@ -13,7 +13,9 @@ const state = {
   remediation: '',
   configDirty: false,
   scriptDirty: false,
-  toastTimer: null
+  toastTimer: null,
+  activeCategory: 'Alle',
+  activeAsrCategory: 'Alle'
 };
 
 const scheduleLabels = {
@@ -22,6 +24,272 @@ const scheduleLabels = {
   weekly: 'Ukentlig',
   once: 'Én gang'
 };
+
+
+const ASR_MODES = Object.freeze({
+  disabled: 0,
+  block: 1,
+  audit: 2,
+  notConfigured: 5,
+  warn: 6
+});
+
+const ASR_RULES = Object.freeze([
+  {
+    "key": "vulnerable-drivers",
+    "number": 1,
+    "nameNo": "Blokker misbruk av utnyttede sårbare signerte drivere",
+    "intuneName": "Block abuse of exploited vulnerable signed drivers (Device)",
+    "guid": "56a863a9-875e-4185-98a7-b882c64b5ce5",
+    "category": "Diverse",
+    "standard": true,
+    "warnSupported": true,
+    "serverOnly": false,
+    "description": "Hindrer programmer i å lagre kjente sårbare signerte drivere som kan gi tilgang til Windows-kjernen.",
+    "note": "Regelen stopper ikke lasting av en driver som allerede finnes på enheten. Kombiner med Windows-listen over sårbare drivere og App Control der det passer."
+  },
+  {
+    "key": "lsass-credential-theft",
+    "number": 2,
+    "nameNo": "Blokker tyveri av legitimasjon fra Windows LSA",
+    "intuneName": "Block credential stealing from the Windows local security authority subsystem",
+    "guid": "9e6c4e1f-7d60-472f-ba1a-a39ef669e4b2",
+    "category": "Sideveis bevegelse og legitimasjonstyveri",
+    "standard": true,
+    "warnSupported": false,
+    "serverOnly": false,
+    "description": "Begrenser prosessers tilgang til LSASS-minnet for å hindre uthenting av passord og legitimasjonsmateriale.",
+    "note": "Warn støttes ikke. Når LSA-beskyttelse og Credential Guard allerede er aktivert, kan regelen være redundant."
+  },
+  {
+    "key": "wmi-persistence",
+    "number": 3,
+    "nameNo": "Blokker vedvarende tilgang via WMI-hendelsesabonnement",
+    "intuneName": "Block persistence through WMI event subscription",
+    "guid": "e6db77e5-3df2-4cf1-b95a-636979351e5b",
+    "category": "Sideveis bevegelse og legitimasjonstyveri",
+    "standard": true,
+    "warnSupported": true,
+    "serverOnly": false,
+    "description": "Stopper skadevare fra å bruke WMI-hendelsesabonnement til skjult og vedvarende kjøring.",
+    "note": "Test grundig i Audit dersom Microsoft Configuration Manager brukes, fordi klienten er sterkt avhengig av WMI."
+  },
+  {
+    "key": "adobe-child-process",
+    "number": 4,
+    "nameNo": "Blokker Adobe Reader fra å opprette underprosesser",
+    "intuneName": "Block Adobe Reader from creating child processes",
+    "guid": "7674ba52-37eb-4a4f-a9a1-f0f9a1619a2c",
+    "category": "Produktivitetsapper",
+    "standard": false,
+    "warnSupported": true,
+    "serverOnly": false,
+    "description": "Hindrer Adobe Reader i å starte kommandolinjeverktøy og andre prosesser fra PDF-innhold.",
+    "note": "Start i Audit og test PDF-skjemaer, signeringsløsninger og dokumentarbeidsflyter."
+  },
+  {
+    "key": "office-child-process",
+    "number": 5,
+    "nameNo": "Blokker Office-programmer fra å opprette underprosesser",
+    "intuneName": "Block all Office applications from creating child processes",
+    "guid": "d4f940ab-401b-4efc-aadc-ad5f3c50688a",
+    "category": "Produktivitetsapper",
+    "standard": false,
+    "warnSupported": true,
+    "serverOnly": false,
+    "description": "Hindrer Office-programmer i å starte prosesser som PowerShell, cmd og scriptmotorer.",
+    "note": "En sterk regel med mulig påvirkning på tillegg, makroer og automatiserte arbeidsflyter. Bruk Audit først."
+  },
+  {
+    "key": "email-executable",
+    "number": 6,
+    "nameNo": "Blokker kjørbart innhold fra e-postklient og webmail",
+    "intuneName": "Block executable content from email client and webmail",
+    "guid": "be9ba2d9-53ea-4cdc-84e5-9b1eeee46550",
+    "category": "E-post",
+    "standard": false,
+    "warnSupported": true,
+    "serverOnly": false,
+    "description": "Blokkerer kjørbare filer og script som åpnes eller lagres fra e-postklienter og webmail.",
+    "note": "Pilotér med brukere som mottar legitime script, arkiver eller installasjonspakker via e-post."
+  },
+  {
+    "key": "prevalence-age-trusted",
+    "number": 7,
+    "nameNo": "Blokker ukjente kjørbare filer etter utbredelse, alder eller tillit",
+    "intuneName": "Block executable files from running unless they meet a prevalence, age, or trusted list criterion",
+    "guid": "01443614-cd74-433a-b99e-2ecdc07bfc25",
+    "category": "Polymorfe trusler",
+    "standard": false,
+    "warnSupported": true,
+    "serverOnly": false,
+    "description": "Bruker skyintelligens til å blokkere filer som er sjeldne, nye eller ikke har opparbeidet tillit.",
+    "note": "Krever skylevert beskyttelse. Audit-data er viktig for egenutviklede og ofte endrede applikasjoner."
+  },
+  {
+    "key": "obfuscated-scripts",
+    "number": 8,
+    "nameNo": "Blokker kjøring av potensielt obfuskerte script",
+    "intuneName": "Block execution of potentially obfuscated scripts",
+    "guid": "5beb7efe-fd9a-4556-801d-275e5ffc04cc",
+    "category": "Script",
+    "standard": false,
+    "warnSupported": true,
+    "serverOnly": false,
+    "description": "Oppdager og blokkerer script som bruker obfuskeringsteknikker for å skjule skadelig innhold.",
+    "note": "Test interne PowerShell-, JavaScript- og VBScript-løsninger i Audit før blokkering."
+  },
+  {
+    "key": "js-vbs-downloaded-exe",
+    "number": 9,
+    "nameNo": "Blokker JavaScript eller VBScript fra å starte nedlastet kjørbart innhold",
+    "intuneName": "Block JavaScript or VBScript from launching downloaded executable content",
+    "guid": "d3e037e1-3eb8-44c8-a917-57927947596d",
+    "category": "Script",
+    "standard": false,
+    "warnSupported": true,
+    "serverOnly": false,
+    "description": "Hindrer scriptmotorene i å starte kjørbare filer som er hentet fra internett.",
+    "note": "Vanligvis høy sikkerhetsverdi. Verifiser eldre innloggings- og administrasjonsscript i Audit."
+  },
+  {
+    "key": "office-executable-content",
+    "number": 10,
+    "nameNo": "Blokker Office-programmer fra å opprette kjørbart innhold",
+    "intuneName": "Block Office applications from creating executable content",
+    "guid": "3b576869-a4ec-4529-8536-b80a7769e899",
+    "category": "Produktivitetsapper",
+    "standard": false,
+    "warnSupported": true,
+    "serverOnly": false,
+    "description": "Hindrer Office-programmer i å skrive kjørbare filer til disk.",
+    "note": "Test dokumentgeneratorer, tillegg og makroer som bevisst oppretter binærfiler."
+  },
+  {
+    "key": "office-code-injection",
+    "number": 11,
+    "nameNo": "Blokker Office-programmer fra å injisere kode i andre prosesser",
+    "intuneName": "Block Office applications from injecting code into other processes",
+    "guid": "75668c1f-73b5-4cf0-bb93-3ecf5cb7cc84",
+    "category": "Produktivitetsapper",
+    "standard": false,
+    "warnSupported": false,
+    "serverOnly": false,
+    "description": "Blokkerer teknikker der Office injiserer kode i andre prosesser for å skjule eller kjøre nyttelast.",
+    "note": "Warn støttes ikke. Bruk Audit først og gå deretter til Block når påvirkning er avklart."
+  },
+  {
+    "key": "office-communication-child-process",
+    "number": 12,
+    "nameNo": "Blokker Office-kommunikasjonsapper fra å opprette underprosesser",
+    "intuneName": "Block Office communication application from creating child processes",
+    "guid": "26190899-1602-49e8-8b27-eb1d0a1ce869",
+    "category": "E-post",
+    "standard": false,
+    "warnSupported": true,
+    "serverOnly": false,
+    "description": "Begrenser kommunikasjonsapper i Office-familien fra å starte uventede underprosesser.",
+    "note": "Test integrasjoner, møteverktøy og eldre kommunikasjonsklienter før Block."
+  },
+  {
+    "key": "psexec-wmi-process",
+    "number": 13,
+    "nameNo": "Blokker prosessopprettelse fra PSExec- og WMI-kommandoer",
+    "intuneName": "Block process creations originating from PSExec and WMI commands",
+    "guid": "d1e49aac-8f56-4280-b9ba-993a6d77406c",
+    "category": "Sideveis bevegelse og legitimasjonstyveri",
+    "standard": false,
+    "warnSupported": true,
+    "serverOnly": false,
+    "description": "Hindrer fjernkjøring via vanlige PSExec- og WMI-metoder som ofte brukes ved sideveis bevegelse.",
+    "note": "Kan påvirke drift, software deployment og fjernadministrasjon. Pilotér med IT- og serverteam."
+  },
+  {
+    "key": "safe-mode-reboot",
+    "number": 14,
+    "nameNo": "Blokker omstart av maskinen i sikkermodus",
+    "intuneName": "Block rebooting machine in Safe Mode",
+    "guid": "33ddedf1-c6e0-47cb-833e-de6133960387",
+    "category": "Diverse",
+    "standard": false,
+    "warnSupported": true,
+    "serverOnly": false,
+    "description": "Hindrer skadevare i å starte Windows i sikkermodus for å omgå sikkerhetskomponenter.",
+    "note": "Test legitime recovery- og supportprosesser som bruker sikkermodus."
+  },
+  {
+    "key": "usb-untrusted-unsigned",
+    "number": 15,
+    "nameNo": "Blokker ikke-klarerte og usignerte prosesser fra USB",
+    "intuneName": "Block untrusted and unsigned processes that run from USB",
+    "guid": "b2b3f03d-6a65-4f7b-a9c7-1c7ef74a9ba4",
+    "category": "Polymorfe trusler",
+    "standard": false,
+    "warnSupported": true,
+    "serverOnly": false,
+    "description": "Blokkerer usignerte eller ikke-klarerte kjørbare filer som startes fra flyttbare medier.",
+    "note": "Pilotér i miljøer som bruker portable verktøy, feltutstyr eller leverandørprogramvare fra USB."
+  },
+  {
+    "key": "copied-system-tools",
+    "number": 16,
+    "nameNo": "Blokker bruk av kopierte eller etterlignede systemverktøy",
+    "intuneName": "Block use of copied or impersonated system tools",
+    "guid": "c0033c00-d16d-4114-a5a0-dc9b3a7d2ceb",
+    "category": "Diverse",
+    "standard": false,
+    "warnSupported": true,
+    "serverOnly": false,
+    "description": "Hindrer angripere i å kopiere eller gi nye navn til Windows-systemverktøy for å unngå kontroll.",
+    "note": "Test driftsscript og applikasjoner som leverer egne kopier av Windows-verktøy."
+  },
+  {
+    "key": "webshell-servers",
+    "number": 17,
+    "nameNo": "Blokker opprettelse av webshell på servere",
+    "intuneName": "Block Webshell creation for Servers",
+    "guid": "a8f5898e-1dc8-49a9-9878-85004b8a61e6",
+    "category": "Diverse",
+    "standard": false,
+    "warnSupported": true,
+    "serverOnly": true,
+    "description": "Oppdager og blokkerer opprettelse av webshell-lignende innhold på Windows Server.",
+    "note": "Serverregel. Bruk en separat serverpilot og test webapplikasjoner, publisering og administrasjonsverktøy."
+  },
+  {
+    "key": "win32-api-office-macros",
+    "number": 18,
+    "nameNo": "Blokker Win32 API-kall fra Office-makroer",
+    "intuneName": "Block Win32 API calls from Office macros",
+    "guid": "92e97fa1-2edf-4476-bdd6-9dd0b4dddc7b",
+    "category": "Produktivitetsapper",
+    "standard": false,
+    "warnSupported": true,
+    "serverOnly": false,
+    "description": "Hindrer Office-makroer i å kalle Win32 API-er som kan brukes til prosess- og minnemanipulering.",
+    "note": "Auditér VBA-løsninger og eldre Office-integrasjoner som bruker Windows API."
+  },
+  {
+    "key": "advanced-ransomware",
+    "number": 19,
+    "nameNo": "Bruk avansert beskyttelse mot løsepengevirus",
+    "intuneName": "Use advanced protection against ransomware",
+    "guid": "c1db55ab-c21a-4637-bb3f-a12568109d35",
+    "category": "Polymorfe trusler",
+    "standard": false,
+    "warnSupported": true,
+    "serverOnly": false,
+    "description": "Bruker avansert sky- og maskinlæringsbeskyttelse mot atferd som forbindes med løsepengevirus.",
+    "note": "Krever skylevert beskyttelse. Test egne eller sjeldne programmer som gjør store filendringer."
+  }
+]);
+
+const DEFENDER_RECOMMENDATION_IDS = Object.freeze([
+  'defender',
+  'defender-recommended-baseline',
+  'asr-standard-protection',
+  'asr-pilot-all'
+]);
 
 const uploadedPowerShell = Object.freeze({
   localIpDetection: 'IyBEZXRlY3QgaWYgdGhlIGN1cnJlbnRseSBsb2dnZWQtb24gdXNlciBpcyBhIG1lbWJlciBvZiB0aGUgTmV0d29yayBDb25maWd1cmF0aW9uIE9wZXJhdG9ycyBncm91cA0KDQokR3JvdXBTSUQgPSAiUy0xLTUtMzItNTU2Ig0KJExvZ2dlZE9uVXNlciA9IChHZXQtQ2ltSW5zdGFuY2UgV2luMzJfQ29tcHV0ZXJTeXN0ZW0pLlVzZXJOYW1lDQoNCmlmICgtbm90ICRMb2dnZWRPblVzZXIpIHsNCiAgICBXcml0ZS1PdXRwdXQgIk5vIHVzZXIgaXMgbG9nZ2VkIG9uLiINCiAgICBleGl0IDENCn0NCg0KIyBHZXQgZG9tYWluIGFuZCB1c2VybmFtZQ0KJFVzZXJPYmogPSBOZXctT2JqZWN0IFN5c3RlbS5TZWN1cml0eS5QcmluY2lwYWwuTlRBY2NvdW50KCRMb2dnZWRPblVzZXIpDQokU0lEID0gJFVzZXJPYmouVHJhbnNsYXRlKFtTeXN0ZW0uU2VjdXJpdHkuUHJpbmNpcGFsLlNlY3VyaXR5SWRlbnRpZmllcl0pLlZhbHVlDQoNCiMgQ2hlY2sgaWYgdGhlIHVzZXIgaXMgYSBtZW1iZXIgb2YgdGhlIGdyb3VwDQokR3JvdXBNZW1iZXJzID0gR2V0LUxvY2FsR3JvdXBNZW1iZXIgLVNJRCAkR3JvdXBTSUQgLUVycm9yQWN0aW9uIFNpbGVudGx5Q29udGludWUNCg0KaWYgKCRHcm91cE1lbWJlcnMgLWFuZCAkR3JvdXBNZW1iZXJzLlNJRCAtY29udGFpbnMgJFNJRCkgew0KICAgIFdyaXRlLU91dHB1dCAiJExvZ2dlZE9uVXNlciBpcyBhbHJlYWR5IGEgbWVtYmVyIG9mIE5ldHdvcmsgQ29uZmlndXJhdGlvbiBPcGVyYXRvcnMuIg0KICAgIGV4aXQgMA0KfSBlbHNlIHsNCiAgICBXcml0ZS1PdXRwdXQgIiRMb2dnZWRPblVzZXIgaXMgTk9UIGEgbWVtYmVyIG9mIE5ldHdvcmsgQ29uZmlndXJhdGlvbiBPcGVyYXRvcnMuIg0KICAgIGV4aXQgMQ0KfQ0K',
@@ -620,6 +888,199 @@ function defenderGenerator(params, meta, recipe) {
   return { detection, remediation: remediationLines.join('\n') };
 }
 
+
+function asrActionLabel(action) {
+  if (action === ASR_MODES.block) return 'Block';
+  if (action === ASR_MODES.audit) return 'Audit';
+  if (action === ASR_MODES.warn) return 'Warn';
+  if (action === ASR_MODES.disabled) return 'Av';
+  return 'Ikke konfigurert';
+}
+
+function buildAsrRulePair(ruleEntries, action, meta, recipe, purpose) {
+  const ids = ruleEntries.map((rule) => rule.guid);
+  const idLines = ids.map((id) => `    '${id}'`).join(',\n');
+  const actionLines = ids.map(() => `    ${action}`).join(',\n');
+  const actionName = asrActionLabel(action);
+
+  const detection = [
+    scriptHeader('detection', recipe, meta, purpose),
+    '',
+    '$RuleIds = @(',
+    idLines,
+    ')',
+    `$ExpectedAction = ${action}`,
+    '',
+    'try {',
+    '    $preference = Get-MpPreference',
+    '    $configuredIds = @($preference.AttackSurfaceReductionRules_Ids)',
+    '    $configuredActions = @($preference.AttackSurfaceReductionRules_Actions)',
+    '    $current = @{}',
+    '',
+    '    for ($index = 0; $index -lt $configuredIds.Count; $index++) {',
+    '        if ($configuredIds[$index]) {',
+    '            $key = ([string]$configuredIds[$index]).ToLowerInvariant()',
+    '            $current[$key] = [int]$configuredActions[$index]',
+    '        }',
+    '    }',
+    '',
+    '    $nonCompliant = [System.Collections.Generic.List[string]]::new()',
+    '    foreach ($ruleId in $RuleIds) {',
+    '        $key = $ruleId.ToLowerInvariant()',
+    '        if (-not $current.ContainsKey($key) -or $current[$key] -ne $ExpectedAction) {',
+    '            $null = $nonCompliant.Add($ruleId)',
+    '        }',
+    '    }',
+    '',
+    '    if ($nonCompliant.Count -eq 0) {',
+    `        Write-Output "OK: Alle $($RuleIds.Count) ASR-regler er satt til ${actionName}."`,
+    '        exit 0',
+    '    }',
+    '',
+    '    $sample = ($nonCompliant | Select-Object -First 5) -join ", "',
+    `    Write-Output ("AVVIK: {0} av {1} ASR-regler har ikke forventet modus ${actionName}. Eksempel: {2}" -f $nonCompliant.Count, $RuleIds.Count, $sample)`,
+    '    exit 1',
+    '}',
+    'catch {',
+    '    Write-Output ("AVVIK: Klarte ikke å lese ASR-konfigurasjonen: {0}" -f $_.Exception.Message)',
+    '    exit 1',
+    '}'
+  ].join('\n');
+
+  const remediation = [
+    scriptHeader('remediation', recipe, meta, `Konfigurerer ${ids.length} ASR-regler i ${actionName}-modus med Microsoft Defender PowerShell-cmdleter.`),
+    '',
+    '$RuleIds = @(',
+    idLines,
+    ')',
+    '$RuleActions = @(',
+    actionLines,
+    ')',
+    '',
+    'try {',
+    '    if ($RuleIds.Count -ne $RuleActions.Count) { throw "Antall regel-ID-er og handlinger er ulikt." }',
+    '    Add-MpPreference -AttackSurfaceReductionRules_Ids $RuleIds -AttackSurfaceReductionRules_Actions $RuleActions',
+    '    Start-Sleep -Seconds 2',
+    '',
+    '    $preference = Get-MpPreference',
+    '    $configuredIds = @($preference.AttackSurfaceReductionRules_Ids)',
+    '    $configuredActions = @($preference.AttackSurfaceReductionRules_Actions)',
+    '    $current = @{}',
+    '    for ($index = 0; $index -lt $configuredIds.Count; $index++) {',
+    '        if ($configuredIds[$index]) {',
+    '            $key = ([string]$configuredIds[$index]).ToLowerInvariant()',
+    '            $current[$key] = [int]$configuredActions[$index]',
+    '        }',
+    '    }',
+    '',
+    '    $remaining = @($RuleIds | Where-Object {',
+    '        $key = $_.ToLowerInvariant()',
+    `        -not $current.ContainsKey($key) -or $current[$key] -ne ${action}`,
+    '    })',
+    '',
+    '    if ($remaining.Count -eq 0) {',
+    `        Write-Output "RETTET: Alle $($RuleIds.Count) ASR-regler er satt til ${actionName}."`,
+    '        exit 0',
+    '    }',
+    '',
+    '    Write-Output ("FEIL: {0} ASR-regler har fortsatt feil modus. Intune-, Defender- eller Group Policy kan overstyre lokale innstillinger." -f $remaining.Count)',
+    '    exit 1',
+    '}',
+    'catch {',
+    '    Write-Output ("FEIL: ASR-reglene kunne ikke konfigureres. Tamper Protection eller sentral policy kan blokkere endringen: {0}" -f $_.Exception.Message)',
+    '    exit 1',
+    '}'
+  ].join('\n');
+
+  return { detection, remediation };
+}
+
+function defenderRecommendedGenerator(params, meta, recipe) {
+  const maxSignatureAge = clampNumber(params.maxSignatureAge, 1, 30, 3);
+  const checks = [
+    "    if (-not $status.AMServiceEnabled) { $problems += 'Defender-tjenesten er ikke aktiv' }",
+    "    if (-not $status.AntivirusEnabled) { $problems += 'Defender Antivirus er ikke aktivert' }",
+    "    if (-not $status.RealTimeProtectionEnabled) { $problems += 'sanntidsbeskyttelse er av' }",
+    `    if ($status.AntivirusSignatureAge -gt ${maxSignatureAge}) { $problems += "signaturene er $($status.AntivirusSignatureAge) dager gamle" }`
+  ];
+  if (params.cloudProtection) checks.push("    if ([int]$preference.MAPSReporting -lt 2) { $problems += 'skylevert beskyttelse er ikke Advanced' }");
+  if (params.puaProtection) checks.push("    if ([int]$preference.PUAProtection -ne 1) { $problems += 'PUA-beskyttelse er ikke aktivert' }");
+  if (params.networkProtection) checks.push("    if ([int]$preference.EnableNetworkProtection -ne 1) { $problems += 'nettverksbeskyttelse er ikke i Block' }");
+  if (params.behaviorMonitoring) checks.push("    if ($preference.DisableBehaviorMonitoring) { $problems += 'atferdsovervåking er deaktivert' }");
+  if (params.ioavProtection) checks.push("    if ($preference.DisableIOAVProtection) { $problems += 'skanning av nedlastinger og vedlegg er deaktivert' }");
+
+  const detection = [
+    scriptHeader('detection', recipe, meta, 'Kontrollerer Microsoft Defender Antivirus og et anbefalt sett med grunninnstillinger.'),
+    '',
+    'try {',
+    '    $status = Get-MpComputerStatus',
+    '    $preference = Get-MpPreference',
+    '    $problems = @()',
+    '',
+    ...checks,
+    '',
+    '    if ($problems.Count -eq 0) {',
+    '        Write-Output ("OK: Defender-grunnbeskyttelsen er aktiv og signaturene er {0} dager gamle." -f $status.AntivirusSignatureAge)',
+    '        exit 0',
+    '    }',
+    '',
+    '    Write-Output ("AVVIK: {0}" -f ($problems -join "; "))',
+    '    exit 1',
+    '}',
+    'catch {',
+    '    Write-Output ("AVVIK: Klarte ikke å lese Defender-konfigurasjonen: {0}" -f $_.Exception.Message)',
+    '    exit 1',
+    '}'
+  ].join('\n');
+
+  const commands = ['    Set-MpPreference -DisableRealtimeMonitoring $false'];
+  if (params.cloudProtection) commands.push('    Set-MpPreference -MAPSReporting Advanced');
+  if (params.puaProtection) commands.push('    Set-MpPreference -PUAProtection Enabled');
+  if (params.networkProtection) commands.push('    Set-MpPreference -EnableNetworkProtection Enabled');
+  if (params.behaviorMonitoring) commands.push('    Set-MpPreference -DisableBehaviorMonitoring $false');
+  if (params.ioavProtection) commands.push('    Set-MpPreference -DisableIOAVProtection $false');
+  if (params.updateSignatures) commands.push('    Update-MpSignature');
+
+  const remediation = [
+    scriptHeader('remediation', recipe, meta, 'Forsøker å aktivere den valgte Defender-grunnbeskyttelsen og oppdatere sikkerhetsinformasjon.'),
+    '',
+    'try {',
+    ...commands,
+    '    Start-Sleep -Seconds 3',
+    '    $status = Get-MpComputerStatus',
+    '    $preference = Get-MpPreference',
+    '    $problems = @()',
+    ...checks,
+    '',
+    '    if ($problems.Count -eq 0) {',
+    '        Write-Output "RETTET: Defender-grunnbeskyttelsen er i ønsket tilstand."',
+    '        exit 0',
+    '    }',
+    '',
+    '    Write-Output ("FEIL: Defender har fortsatt avvik: {0}" -f ($problems -join "; "))',
+    '    exit 1',
+    '}',
+    'catch {',
+    '    Write-Output ("FEIL: Defender-innstillingene kunne ikke endres. Tamper Protection eller sentral policy kan blokkere endringen: {0}" -f $_.Exception.Message)',
+    '    exit 1',
+    '}'
+  ].join('\n');
+
+  return { detection, remediation };
+}
+
+function asrStandardGenerator(params, meta, recipe) {
+  const rules = ASR_RULES.filter((rule) => rule.standard && (params.includeWmi || rule.key !== 'wmi-persistence'));
+  const action = params.mode === 'audit' ? ASR_MODES.audit : ASR_MODES.block;
+  return buildAsrRulePair(rules, action, meta, recipe, 'Kontrollerer Microsofts standardbeskyttelsesregler for Attack Surface Reduction.');
+}
+
+function asrPilotGenerator(params, meta, recipe) {
+  const rules = ASR_RULES.filter((rule) => params.includeServerRule || !rule.serverOnly);
+  const action = params.mode === 'block' ? ASR_MODES.block : ASR_MODES.audit;
+  return buildAsrRulePair(rules, action, meta, recipe, 'Kontrollerer et komplett pilotregelsett for Attack Surface Reduction.');
+}
+
 function diskGenerator(params, meta, recipe) {
   const drive = /^[A-Za-z]:$/.test(params.drive || '') ? params.drive.toUpperCase() : 'C:';
   const minFreeGB = clampNumber(params.minFreeGB, 1, 1000, 15);
@@ -1076,6 +1537,116 @@ const recipes = [
       return { exitCode: 1, message: `AVVIK: ${problems.join('; ')}.`, details: ['Intune ville startet Remediation.ps1.'] };
     }
   },
+
+  {
+    id: 'defender-recommended-baseline',
+    name: 'Defender anbefalt grunnbeskyttelse',
+    icon: '🛡️',
+    category: 'Sikkerhet',
+    risk: 'medium',
+    riskLabel: 'Middels påvirkning',
+    summary: 'Kontroller skybeskyttelse, PUA, nettverk, atferd og signaturer.',
+    description: 'Kontrollerer et anbefalt sett med Microsoft Defender-funksjoner. Remediation forsøker å aktivere valgte innstillinger, men sentral policy og Tamper Protection kan overstyre lokale endringer.',
+    defaultPackage: 'Kontroller Defender grunnbeskyttelse',
+    defaults: {
+      maxSignatureAge: 3,
+      cloudProtection: true,
+      puaProtection: true,
+      networkProtection: true,
+      behaviorMonitoring: true,
+      ioavProtection: true,
+      updateSignatures: true
+    },
+    fields: [
+      { id: 'maxSignatureAge', label: 'Maksimal signaturalder', suffix: 'dager', type: 'number', default: 3, min: 1, max: 30, help: 'Eldre sikkerhetsinformasjon utløser remediation.' },
+      { id: 'cloudProtection', label: 'Krev skylevert beskyttelse', type: 'checkbox', help: 'Kontrollerer MAPSReporting og setter Advanced ved retting.' },
+      { id: 'puaProtection', label: 'Krev PUA-beskyttelse', type: 'checkbox', help: 'Aktiverer blokkering av potensielt uønskede programmer.' },
+      { id: 'networkProtection', label: 'Krev nettverksbeskyttelse i Block', type: 'checkbox', help: 'Kan blokkere tilgang til skadelige eller lavt ansette mål. Pilotér.' },
+      { id: 'behaviorMonitoring', label: 'Krev atferdsovervåking', type: 'checkbox', help: 'Aktiverer Defender Behavior Monitoring.' },
+      { id: 'ioavProtection', label: 'Krev skanning av nedlastinger og vedlegg', type: 'checkbox', help: 'Aktiverer IOAV-beskyttelse.' },
+      { id: 'updateSignatures', label: 'Oppdater Defender-signaturer', type: 'checkbox', help: 'Kjører Update-MpSignature.' }
+    ],
+    testFields: [
+      { id: 'antivirusEnabled', label: 'Defender Antivirus er aktivt', type: 'checkbox', default: true },
+      { id: 'realtimeEnabled', label: 'Sanntidsbeskyttelse er aktiv', type: 'checkbox', default: true },
+      { id: 'cloudEnabled', label: 'Skylevert beskyttelse er aktiv', type: 'checkbox', default: false },
+      { id: 'puaEnabled', label: 'PUA-beskyttelse er aktiv', type: 'checkbox', default: false },
+      { id: 'networkEnabled', label: 'Nettverksbeskyttelse er i Block', type: 'checkbox', default: false },
+      { id: 'behaviorEnabled', label: 'Atferdsovervåking er aktiv', type: 'checkbox', default: true },
+      { id: 'ioavEnabled', label: 'Nedlastinger og vedlegg skannes', type: 'checkbox', default: true },
+      { id: 'signatureAge', label: 'Simulert signaturalder', suffix: 'dager', type: 'number', default: 5, min: 0, max: 365 }
+    ],
+    defaultsIntune: { runAsUser: false, run64Bit: true, signatureCheck: false, schedule: 'daily' },
+    generate: defenderRecommendedGenerator,
+    simulate: (params, test) => {
+      const problems = [];
+      if (!test.antivirusEnabled) problems.push('Defender Antivirus er ikke aktivt');
+      if (!test.realtimeEnabled) problems.push('sanntidsbeskyttelse er av');
+      if (params.cloudProtection && !test.cloudEnabled) problems.push('skylevert beskyttelse er av');
+      if (params.puaProtection && !test.puaEnabled) problems.push('PUA-beskyttelse er av');
+      if (params.networkProtection && !test.networkEnabled) problems.push('nettverksbeskyttelse er ikke i Block');
+      if (params.behaviorMonitoring && !test.behaviorEnabled) problems.push('atferdsovervåking er av');
+      if (params.ioavProtection && !test.ioavEnabled) problems.push('IOAV-beskyttelse er av');
+      if (Number(test.signatureAge) > Number(params.maxSignatureAge)) problems.push(`signaturene er ${Number(test.signatureAge)} dager gamle`);
+      return problems.length
+        ? { exitCode: 1, message: `AVVIK: ${problems.join('; ')}.`, details: ['Intune ville startet Remediation.ps1.'] }
+        : { exitCode: 0, message: 'OK: Defender-grunnbeskyttelsen er i ønsket tilstand.', details: ['Alle valgte kontroller er bestått.'] };
+    }
+  },
+  {
+    id: 'asr-standard-protection',
+    name: 'ASR – standardbeskyttelse',
+    icon: 'ASR',
+    category: 'Sikkerhet',
+    risk: 'medium',
+    riskLabel: 'Kontrollert sikkerhetsendring',
+    summary: 'Kontroller de tre standardbeskyttelsesreglene i Block eller Audit.',
+    description: 'Bygger et scriptpar for Microsofts tre standardbeskyttelsesregler: sårbare drivere, LSASS-legitimasjonstyveri og WMI-persistens. Endpoint Security-policy i Intune anbefales for produksjon.',
+    defaultPackage: 'ASR standardbeskyttelse',
+    defaults: { mode: 'block', includeWmi: true },
+    fields: [
+      { id: 'mode', label: 'Regelmodus', type: 'select', options: [['block', 'Block – anbefalt standard'], ['audit', 'Audit – test uten blokkering']], help: 'Standardreglene kan normalt settes til Block, men les merknadene om WMI og LSASS.' },
+      { id: 'includeWmi', label: 'Ta med WMI-persistensregelen', type: 'checkbox', help: 'Test grundig dersom Configuration Manager brukes.' }
+    ],
+    testFields: [
+      { id: 'configuredRules', label: 'Antall standardregler i ønsket modus', type: 'number', default: 1, min: 0, max: 3 }
+    ],
+    defaultsIntune: { runAsUser: false, run64Bit: true, signatureCheck: false, schedule: 'daily' },
+    generate: asrStandardGenerator,
+    simulate: (params, test) => {
+      const expected = params.includeWmi ? 3 : 2;
+      return Number(test.configuredRules) >= expected
+        ? { exitCode: 0, message: `OK: ${expected} standardbeskyttelsesregler er i ønsket modus.`, details: [`Modus = ${params.mode === 'audit' ? 'Audit' : 'Block'}`] }
+        : { exitCode: 1, message: `AVVIK: ${Number(test.configuredRules)} av ${expected} regler er i ønsket modus.`, details: ['Intune ville startet Remediation.ps1.'] };
+    }
+  },
+  {
+    id: 'asr-pilot-all',
+    name: 'ASR – pilot for alle regler',
+    icon: '19',
+    category: 'Sikkerhet',
+    risk: 'high',
+    riskLabel: 'Krever pilotering',
+    summary: 'Kontroller opptil alle 19 ASR-regler i Audit eller Block.',
+    description: 'Lager et komplett ASR-pilotsett. Standard er Audit, slik at hendelser kan vurderes før reglene flyttes til Warn eller Block. Serverregelen kan tas med eksplisitt.',
+    defaultPackage: 'ASR pilot alle regler',
+    defaults: { mode: 'audit', includeServerRule: false },
+    fields: [
+      { id: 'mode', label: 'Regelmodus', type: 'select', options: [['audit', 'Audit – anbefalt pilot'], ['block', 'Block – kun etter dokumentert testing']], help: 'Bruk Audit først for øvrige ASR-regler.' },
+      { id: 'includeServerRule', label: 'Ta med webshell-regelen for servere', type: 'checkbox', help: 'Bør normalt styres i en separat Windows Server-policy og pilot.' }
+    ],
+    testFields: [
+      { id: 'configuredRules', label: 'Antall regler i ønsket modus', type: 'number', default: 6, min: 0, max: 19 }
+    ],
+    defaultsIntune: { runAsUser: false, run64Bit: true, signatureCheck: false, schedule: 'daily' },
+    generate: asrPilotGenerator,
+    simulate: (params, test) => {
+      const expected = params.includeServerRule ? 19 : 18;
+      return Number(test.configuredRules) >= expected
+        ? { exitCode: 0, message: `OK: ${expected} ASR-regler er i ønsket modus.`, details: [`Modus = ${params.mode === 'block' ? 'Block' : 'Audit'}`] }
+        : { exitCode: 1, message: `AVVIK: ${Number(test.configuredRules)} av ${expected} regler er i ønsket modus.`, details: ['Intune ville startet Remediation.ps1.'] };
+    }
+  },
   {
     id: 'disk-space',
     name: 'Diskplass',
@@ -1505,21 +2076,192 @@ function renderQuickRecipeOptions() {
   $('quickRecipe').value = state.selectedRecipeId;
 }
 
+
+function renderCategoryFilters() {
+  const container = $('categoryFilters');
+  const categories = ['Alle', ...new Set(recipes.map((recipe) => recipe.category))];
+  container.innerHTML = '';
+
+  for (const category of categories) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `category-filter-button${state.activeCategory === category ? ' active' : ''}`;
+    button.dataset.category = category;
+    button.setAttribute('aria-pressed', state.activeCategory === category ? 'true' : 'false');
+    const count = category === 'Alle' ? recipes.length : recipes.filter((recipe) => recipe.category === category).length;
+    button.innerHTML = `${category}<span class="filter-count">${count}</span>`;
+    container.appendChild(button);
+  }
+}
+
+function renderDefenderRecommendations(matches = recipes) {
+  const section = $('defenderRecommendations');
+  const row = $('defenderRecipeRow');
+  const matchIds = new Set(matches.map((recipe) => recipe.id));
+  const defenderMatches = DEFENDER_RECOMMENDATION_IDS
+    .map((recipeId) => recipes.find((item) => item.id === recipeId))
+    .filter((recipe) => recipe && matchIds.has(recipe.id));
+
+  section.hidden = defenderMatches.length === 0;
+  row.innerHTML = '';
+
+  for (const recipe of defenderMatches) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `defender-recipe-card${recipe.id === state.selectedRecipeId ? ' selected' : ''}`;
+    button.dataset.recipe = recipe.id;
+    button.setAttribute('aria-pressed', recipe.id === state.selectedRecipeId ? 'true' : 'false');
+
+    const top = document.createElement('div');
+    top.className = 'defender-recipe-card-top';
+    const icon = document.createElement('span');
+    icon.className = 'mini-icon';
+    icon.textContent = recipe.icon;
+    const badge = document.createElement('span');
+    badge.className = 'recommendation-badge';
+    badge.textContent = 'Anbefalt';
+    top.append(icon, badge);
+
+    const title = document.createElement('strong');
+    title.textContent = recipe.name;
+    const description = document.createElement('p');
+    description.textContent = recipe.summary;
+    button.append(top, title, description);
+    row.appendChild(button);
+  }
+}
+
+function renderAsrCategoryFilters() {
+  const container = $('asrCategoryFilters');
+  const categories = ['Alle', 'Standardbeskyttelse', ...new Set(ASR_RULES.map((rule) => rule.category))];
+  container.innerHTML = '';
+
+  for (const category of categories) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `category-filter-button${state.activeAsrCategory === category ? ' active' : ''}`;
+    button.dataset.asrCategory = category;
+    button.setAttribute('aria-pressed', state.activeAsrCategory === category ? 'true' : 'false');
+    const count = category === 'Alle'
+      ? ASR_RULES.length
+      : category === 'Standardbeskyttelse'
+        ? ASR_RULES.filter((rule) => rule.standard).length
+        : ASR_RULES.filter((rule) => rule.category === category).length;
+    button.innerHTML = `${category}<span class="filter-count">${count}</span>`;
+    container.appendChild(button);
+  }
+}
+
+function renderAsrRules() {
+  const search = ($('asrRuleSearch')?.value || '').trim().toLowerCase();
+  const matches = ASR_RULES.filter((rule) => {
+    const categoryMatch = state.activeAsrCategory === 'Alle'
+      || (state.activeAsrCategory === 'Standardbeskyttelse' && rule.standard)
+      || rule.category === state.activeAsrCategory;
+    const searchText = [rule.nameNo, rule.intuneName, rule.guid, rule.category, rule.description, rule.note].join(' ').toLowerCase();
+    return categoryMatch && (!search || searchText.includes(search));
+  });
+
+  $('asrRuleCount').textContent = String(ASR_RULES.length);
+  renderAsrCategoryFilters();
+  const grid = $('asrRulesGrid');
+  grid.innerHTML = '';
+
+  if (!matches.length) {
+    const empty = document.createElement('div');
+    empty.className = 'asr-empty';
+    empty.textContent = 'Ingen ASR-regler samsvarer med filteret.';
+    grid.appendChild(empty);
+    return;
+  }
+
+  for (const rule of matches) {
+    const card = document.createElement('article');
+    card.className = `asr-rule-card${rule.standard ? ' standard' : ''}`;
+
+    const head = document.createElement('div');
+    head.className = 'asr-rule-head';
+    const number = document.createElement('span');
+    number.className = 'asr-rule-number';
+    number.textContent = String(rule.number).padStart(2, '0');
+    const titles = document.createElement('div');
+    const title = document.createElement('h4');
+    title.textContent = rule.nameNo;
+    const intuneName = document.createElement('p');
+    intuneName.className = 'asr-rule-intune-name';
+    intuneName.textContent = `Intune: ${rule.intuneName}`;
+    titles.append(title, intuneName);
+    const recommendation = document.createElement('span');
+    recommendation.className = `asr-recommendation ${rule.standard ? 'block' : 'audit'}`;
+    recommendation.textContent = rule.standard ? 'Block' : 'Audit først';
+    head.append(number, titles, recommendation);
+
+    const description = document.createElement('p');
+    description.className = 'asr-rule-description';
+    description.textContent = rule.description;
+
+    const meta = document.createElement('div');
+    meta.className = 'asr-rule-meta';
+    const category = document.createElement('span');
+    category.textContent = rule.category;
+    const group = document.createElement('span');
+    group.textContent = rule.standard ? 'Standardbeskyttelse' : 'Annen ASR-regel';
+    const warn = document.createElement('span');
+    warn.textContent = rule.warnSupported ? 'Warn støttes' : 'Warn støttes ikke';
+    meta.append(category, group, warn);
+    if (rule.serverOnly) {
+      const server = document.createElement('span');
+      server.textContent = 'Serverregel';
+      meta.appendChild(server);
+    }
+
+    const guidRow = document.createElement('div');
+    guidRow.className = 'asr-guid-row';
+    const code = document.createElement('code');
+    code.textContent = rule.guid;
+    const copy = document.createElement('button');
+    copy.type = 'button';
+    copy.dataset.copyGuid = rule.guid;
+    copy.textContent = 'Kopier GUID';
+    guidRow.append(code, copy);
+
+    const note = document.createElement('p');
+    note.className = 'asr-rule-note';
+    const strong = document.createElement('strong');
+    strong.textContent = 'Utrulling: ';
+    note.append(strong, document.createTextNode(rule.note));
+
+    card.append(head, description, meta, guidRow, note);
+    grid.appendChild(card);
+  }
+}
+
 function renderRecipeGrid(filter = '') {
   const query = filter.trim().toLowerCase();
-  const matches = recipes.filter((recipe) => [recipe.name, recipe.category, recipe.summary, recipe.description, ...(recipe.sourceFiles || []), recipe.workflow?.detection || '', recipe.workflow?.remediation || '', ...(recipe.workflow?.notes || [])].join(' ').toLowerCase().includes(query));
+  const matches = recipes.filter((recipe) => {
+    const categoryMatch = state.activeCategory === 'Alle' || recipe.category === state.activeCategory;
+    const searchText = [recipe.name, recipe.category, recipe.summary, recipe.description, ...(recipe.sourceFiles || []), recipe.workflow?.detection || '', recipe.workflow?.remediation || '', ...(recipe.workflow?.notes || [])].join(' ').toLowerCase();
+    return categoryMatch && (!query || searchText.includes(query));
+  });
+  const defenderIds = new Set(DEFENDER_RECOMMENDATION_IDS);
+  const gridMatches = matches.filter((recipe) => !defenderIds.has(recipe.id));
+
+  renderCategoryFilters();
+  renderDefenderRecommendations(matches);
+  $('recipeResultsCount').textContent = `${matches.length} ${matches.length === 1 ? 'oppskrift' : 'oppskrifter'}`;
+  $('clearRecipeFilters').hidden = state.activeCategory === 'Alle' && !query;
   const grid = $('recipeGrid');
   grid.innerHTML = '';
 
   if (!matches.length) {
     const empty = document.createElement('div');
     empty.className = 'empty-recipes';
-    empty.textContent = 'Ingen oppskrifter samsvarer med søket.';
+    empty.textContent = 'Ingen oppskrifter samsvarer med valgt kategori og søk.';
     grid.appendChild(empty);
     return;
   }
 
-  for (const recipe of matches) {
+  for (const recipe of gridMatches) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = `recipe-card${recipe.id === state.selectedRecipeId ? ' selected' : ''}`;
@@ -1563,6 +2305,7 @@ function renderRecipeGrid(filter = '') {
     grid.appendChild(button);
   }
 }
+
 
 
 function renderRecipeWorkflow(recipe) {
@@ -1812,6 +2555,23 @@ function recipeWarnings(recipe, params, meta) {
   }
   if (recipe.id === 'printers' && params.clearStaleJobs) warnings.push({ type: 'warn', text: 'Gamle filer i utskriftskøen slettes. Verifiser tidsgrensen og test med deres skriverplattform.' });
   if (recipe.id === 'defender') warnings.push({ type: 'info', text: 'Tamper Protection, passiv modus eller tredjeparts antivirus kan hindre lokale endringer.' });
+  if (recipe.id === 'defender-recommended-baseline') {
+    warnings.push({ type: 'info', text: 'Bruk Intune Endpoint Security-policy som autoritativ konfigurasjon i produksjon. Lokale Defender-innstillinger kan bli overskrevet.' });
+    if (meta.runAsUser) warnings.push({ type: 'bad', text: 'Defender-grunnbeskyttelse bør kjøres som SYSTEM.' });
+    if (params.networkProtection) warnings.push({ type: 'warn', text: 'Nettverksbeskyttelse i Block kan påvirke tilgang til lavt ansette mål. Pilotér på en liten enhetsgruppe.' });
+  }
+  if (recipe.id === 'asr-standard-protection') {
+    warnings.push({ type: 'info', text: 'Intune Endpoint Security-policy anbefales for produksjon. PowerShell har lavere prioritet enn sentral policy.' });
+    if (meta.runAsUser) warnings.push({ type: 'bad', text: 'ASR-oppskriften må kjøres som SYSTEM.' });
+    if (params.includeWmi) warnings.push({ type: 'warn', text: 'WMI-persistensregelen må testes grundig i Audit dersom Microsoft Configuration Manager brukes.' });
+  }
+  if (recipe.id === 'asr-pilot-all') {
+    warnings.push({ type: 'info', text: 'Start med Audit, analyser hendelser og lag presise unntak før reglene flyttes til Warn eller Block.' });
+    warnings.push({ type: 'warn', text: 'Unngå å konfigurere samme ASR-regel med Intune, Group Policy og lokale scripts samtidig.' });
+    if (meta.runAsUser) warnings.push({ type: 'bad', text: 'ASR-oppskriften må kjøres som SYSTEM.' });
+    if (params.mode === 'block') warnings.push({ type: 'bad', text: 'Block for hele regelsettet kan stoppe forretningskritiske apper. Bruk kun etter dokumentert pilotering.' });
+    if (params.includeServerRule) warnings.push({ type: 'warn', text: 'Webshell-regelen er laget for servere og bør normalt piloteres i en separat Windows Server-policy.' });
+  }
   if (recipe.id === 'registry') {
     if (params.hive === 'HKCU' && !meta.runAsUser) warnings.push({ type: 'bad', text: 'HKCU bør normalt kjøres med pålogget brukerkontekst. SYSTEM skriver til en annen brukerhive.' });
     if (params.hive === 'HKLM' && meta.runAsUser) warnings.push({ type: 'warn', text: 'HKLM krever vanligvis administratorrettigheter. SYSTEM-kontekst anbefales.' });
@@ -2058,6 +2818,7 @@ function packageReadme() {
     '',
     `Pakkenavn: ${meta.packageName}`,
     `Oppskrift: ${recipe.name}`,
+    `Kategori: ${recipe.category}`,
     `Beskrivelse: ${recipe.description}`,
     ...(recipe.uploaded ? ['Kilde: Opplastet PowerShell-scriptpar'] : []),
     `Generert: ${new Date().toLocaleString('nb-NO')}`,
@@ -2120,6 +2881,7 @@ function packageManifest() {
       name: meta.packageName,
       recipeId: recipe.id,
       recipeName: recipe.name,
+      category: recipe.category,
       description: recipe.description,
       uploadedSource: Boolean(recipe.uploaded),
       sourceFiles: recipe.sourceFiles || [],
@@ -2143,6 +2905,7 @@ function updatePackageSummary() {
   const entries = [
     ['Pakkenavn', meta.packageName],
     ['Oppskrift', recipe.name],
+    ['Kategori', recipe.category],
     ...(recipe.uploaded ? [['Kilde', 'Opplastet scriptpar']] : []),
     ['Kontekst', meta.runAsUser ? 'Pålogget bruker' : 'SYSTEM'],
     ['64-bit', meta.run64Bit ? 'Ja' : 'Nei'],
@@ -2325,10 +3088,33 @@ function bindEvents() {
   });
   $('quickStart').addEventListener('click', () => activateRecipe($('quickRecipe').value, { packageName: $('quickPackageName').value, reset: true, scroll: true }));
   $('recipeSearch').addEventListener('input', () => renderRecipeGrid($('recipeSearch').value));
+  $('categoryFilters').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-category]');
+    if (!button) return;
+    state.activeCategory = button.dataset.category;
+    renderRecipeGrid($('recipeSearch').value);
+  });
+  $('clearRecipeFilters').addEventListener('click', () => {
+    state.activeCategory = 'Alle';
+    $('recipeSearch').value = '';
+    renderRecipeGrid();
+  });
+  $('defenderRecipeRow').addEventListener('click', (event) => {
+    const card = event.target.closest('[data-recipe]');
+    if (!card) return;
+    activateRecipe(card.dataset.recipe, { reset: true, scroll: true });
+  });
   $('recipeGrid').addEventListener('click', (event) => {
     const card = event.target.closest('[data-recipe]');
     if (!card) return;
     activateRecipe(card.dataset.recipe, { reset: true, scroll: true });
+  });
+  $('asrRuleSearch').addEventListener('input', renderAsrRules);
+  $('asrCategoryFilters').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-asr-category]');
+    if (!button) return;
+    state.activeAsrCategory = button.dataset.asrCategory;
+    renderAsrRules();
   });
   $('generateScripts').addEventListener('click', () => generateScripts(true));
   $('resetRecipe').addEventListener('click', () => {
@@ -2359,6 +3145,11 @@ function bindEvents() {
     renderValidation();
   });
   document.addEventListener('click', (event) => {
+    const guidButton = event.target.closest('[data-copy-guid]');
+    if (guidButton) {
+      copyText(guidButton.dataset.copyGuid, 'ASR-GUID er kopiert.');
+      return;
+    }
     const copyButton = event.target.closest('[data-copy]');
     if (copyButton) {
       if (!ensureScriptsCurrent()) {
@@ -2385,6 +3176,7 @@ function initialize() {
   $('recipeCount').textContent = `${recipes.length} maler`;
   renderQuickRecipeOptions();
   renderRecipeGrid();
+  renderAsrRules();
   bindEvents();
   activateRecipe('defender', { reset: true, packageName: 'Kontroller Microsoft Defender' });
 }

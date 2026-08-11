@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="description" content="Bygg Detection.ps1 og Remediation.ps1 for Microsoft Intune Remediations med ferdige norske oppskrifter, simulert deteksjonstest og nedlasting." />
+  <meta name="description" content="Bygg Detection.ps1 og Remediation.ps1 for Microsoft Intune Remediations med kategorifiltrering, Defender-anbefalinger, komplett ASR-guide og nedlasting." />
   <meta name="theme-color" content="#07111f" />
   <title>Intune Remediation Builder</title>
   <link rel="stylesheet" href="./styles.css" />
@@ -25,6 +25,7 @@
         <a href="#recipes">Oppskrifter</a>
         <a href="#builder">Scriptbygger</a>
         <a href="#test">Test detection</a>
+        <a href="#asr-guide">ASR-regler</a>
         <a href="#requirements">Intune-krav</a>
       </nav>
       <div class="privacy-pill"><span class="dot"></span> Alt bygges lokalt</div>
@@ -39,6 +40,7 @@
           <div class="hero-badges" aria-label="Nøkkelfunksjoner">
             <span>Detection.ps1</span>
             <span>Remediation.ps1</span>
+            <span>19 ASR-regler</span>
             <span>Ingen innlogging</span>
           </div>
         </div>
@@ -49,7 +51,7 @@
               <p class="section-kicker">Kom raskt i gang</p>
               <h2 id="quickTitle">Velg en oppskrift</h2>
             </div>
-            <span id="recipeCount" class="recipe-count">17 maler</span>
+            <span id="recipeCount" class="recipe-count">20 maler</span>
           </div>
           <label for="quickRecipe">Oppskrift</label>
           <select id="quickRecipe"></select>
@@ -69,7 +71,7 @@
             <div>
               <p class="eyebrow">Ferdige utgangspunkt</p>
               <h2>Oppskrifter for vanlige Intune-behov</h2>
-              <p>Hver oppskrift kan tilpasses og redigeres før nedlasting.</p>
+              <p>Filtrer på kategori, velg en oppskrift og tilpass den før nedlasting.</p>
             </div>
             <div class="recipe-filter">
               <label class="sr-only" for="recipeSearch">Søk i oppskrifter</label>
@@ -77,6 +79,30 @@
               <input id="recipeSearch" type="search" placeholder="Søk etter oppskrift …" />
             </div>
           </div>
+
+          <div class="recipe-toolbar" aria-label="Filtrer oppskrifter">
+            <div id="categoryFilters" class="category-filters" role="group" aria-label="Oppskriftskategori"></div>
+            <div class="recipe-result-summary">
+              <span id="recipeResultsCount">20 oppskrifter</span>
+              <button id="clearRecipeFilters" class="text-button" type="button" hidden>Nullstill filtre</button>
+            </div>
+          </div>
+
+          <section id="defenderRecommendations" class="defender-recommendations" aria-labelledby="defenderRecommendationsTitle">
+            <div class="defender-recommendations-head">
+              <div class="defender-recommendations-title">
+                <span class="defender-shield" aria-hidden="true">🛡️</span>
+                <div>
+                  <p class="section-kicker">Egen anbefalingsrad</p>
+                  <h3 id="defenderRecommendationsTitle">Defender-anbefalinger</h3>
+                  <p>Kontroller grunnbeskyttelse, skyleverte funksjoner og rull ut ASR-regler i riktig rekkefølge.</p>
+                </div>
+              </div>
+              <a href="#asr-guide" class="defender-guide-link">Se alle ASR-regler <span aria-hidden="true">↓</span></a>
+            </div>
+            <div id="defenderRecipeRow" class="defender-recipe-row"></div>
+          </section>
+
           <div id="recipeGrid" class="recipe-grid"></div>
         </section>
 
@@ -262,6 +288,76 @@
               </div>
               <div id="validationList" class="validation-list"></div>
             </section>
+          </div>
+        </section>
+
+
+        <section id="asr-guide" class="section-block asr-guide-section">
+          <div class="section-heading split-heading">
+            <div>
+              <p class="eyebrow">Microsoft Defender</p>
+              <h2>Attack Surface Reduction-regler</h2>
+              <p>En komplett norsk oversikt over alle ASR-reglene, GUID-er, anbefalt utrullingsmodus og hvordan de settes opp i Microsoft Intune.</p>
+            </div>
+            <span class="asr-count-badge"><strong id="asrRuleCount">19</strong> regler</span>
+          </div>
+
+          <div class="asr-intro-card">
+            <div class="asr-intro-copy">
+              <span class="asr-hero-icon" aria-hidden="true">ASR</span>
+              <div>
+                <h3>Reduser angrepsflaten uten å stoppe forretningen</h3>
+                <p>ASR-regler blokkerer risikofylt programatferd som ofte brukes av skadevare. Bruk Intune Endpoint Security som hovedmetode i produksjon. PowerShell-oppskriftene i denne appen er best egnet til testing, validering og avgrensede scenarioer.</p>
+              </div>
+            </div>
+            <div class="asr-prerequisites">
+              <strong>Før du begynner</strong>
+              <span>Defender Antivirus må være primært antivirus</span>
+              <span>Sanntidsbeskyttelse må være aktiv</span>
+              <span>Skylevert beskyttelse anbefales og kreves av enkelte regler</span>
+              <span>Tildel ASR-policy til enhetsgrupper, ikke brukergrupper</span>
+            </div>
+          </div>
+
+          <div class="asr-setup-grid" aria-label="Oppsett av ASR i Intune">
+            <article><span>01</span><h3>Opprett policy</h3><p>Åpne <strong>Endpoint security → Attack surface reduction</strong>, velg <strong>Create Policy</strong>, plattform <strong>Windows</strong> og profilen <strong>Attack Surface Reduction Rules</strong>.</p></article>
+            <article><span>02</span><h3>Start kontrollert</h3><p>Standardbeskyttelsesreglene kan normalt settes til <strong>Block</strong>. Sett øvrige regler til <strong>Audit</strong> på en liten pilotring først.</p></article>
+            <article><span>03</span><h3>Analyser hendelser</h3><p>Følg ASR-rapporten, Advanced Hunting eller Windows Defender Operational-loggen. Audit-hendelser gjør det mulig å finne reell bruker- og apppåvirkning.</p></article>
+            <article><span>04</span><h3>Lag presise unntak</h3><p>Foretrekk unntak per regel fremfor globale unntak. Flytt deretter reglene gradvis til <strong>Warn</strong> eller <strong>Block</strong>.</p></article>
+          </div>
+
+          <div class="asr-mode-grid" aria-label="ASR-moduser">
+            <article><strong>0</strong><span>Av</span><p>Regelen er eksplisitt deaktivert.</p></article>
+            <article class="mode-block"><strong>1</strong><span>Block</span><p>Risikofylt atferd blokkeres.</p></article>
+            <article class="mode-audit"><strong>2</strong><span>Audit</span><p>Hendelser logges uten blokkering.</p></article>
+            <article><strong>5</strong><span>Ikke konfigurert</span><p>Ingen eksplisitt innstilling fra denne policyen.</p></article>
+            <article class="mode-warn"><strong>6</strong><span>Warn</span><p>Brukeren varsles og kan midlertidig overstyre når regelen støtter det.</p></article>
+          </div>
+
+          <div class="asr-rules-toolbar">
+            <div>
+              <p class="section-kicker">Alle regler</p>
+              <h3>ASR-regelreferanse</h3>
+            </div>
+            <div class="asr-search">
+              <label class="sr-only" for="asrRuleSearch">Søk i ASR-regler</label>
+              <span aria-hidden="true">⌕</span>
+              <input id="asrRuleSearch" type="search" placeholder="Søk etter navn, GUID eller kategori …" />
+            </div>
+          </div>
+          <div id="asrCategoryFilters" class="category-filters asr-category-filters" role="group" aria-label="ASR-kategori"></div>
+          <div id="asrRulesGrid" class="asr-rules-grid"></div>
+
+          <div class="asr-production-note">
+            <div>
+              <strong>Produksjonsanbefaling</strong>
+              <p>Intune- eller Defender-policy overskriver motstridende lokale PowerShell-innstillinger ved oppstart. Unngå å konfigurere de samme reglene samtidig med Intune, Group Policy og lokale scripts.</p>
+            </div>
+            <div class="asr-links">
+              <a href="https://learn.microsoft.com/en-us/defender-endpoint/attack-surface-reduction-rules-overview" target="_blank" rel="noopener noreferrer">Microsoft ASR-oversikt ↗</a>
+              <a href="https://learn.microsoft.com/en-us/defender-endpoint/attack-surface-reduction-rules-configure" target="_blank" rel="noopener noreferrer">Oppsett og unntak ↗</a>
+              <a href="https://learn.microsoft.com/en-us/defender-endpoint/attack-surface-reduction-rules-deployment" target="_blank" rel="noopener noreferrer">Utrullingsveiledning ↗</a>
+            </div>
           </div>
         </section>
 
